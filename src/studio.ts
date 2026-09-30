@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { scores } from './model.js';
-import { createStudent } from './students.js';
+import { scores } from './model.ts';
+import { createStudent } from './students.ts';
+import type { Game, Vec3 } from './types.ts';
 
 // Original broadcast set inspired by programming-contest halls.
-export function createStudio(scene) {
+export function createStudio(scene: THREE.Scene) {
   const group = new THREE.Group(); scene.add(group);
   const metal = new THREE.MeshStandardMaterial({color:'#24304a',metalness:.65,roughness:.35});
   const dark = new THREE.MeshStandardMaterial({color:'#111a2c',metalness:.35,roughness:.6});
@@ -11,10 +12,10 @@ export function createStudio(scene) {
   const blue = new THREE.MeshBasicMaterial({color:'#36bcff'});
   const red = new THREE.MeshBasicMaterial({color:'#ff5469'});
   const white = new THREE.MeshBasicMaterial({color:'#c4dcff'});
-  function box(w,h,d,x,y,z,material=dark) {
+  function box(w: number,h: number,d: number,x: number,y: number,z: number,material: THREE.Material=dark) {
     const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;group.add(m);return m;
   }
-  function bar(a,b,r=.055) {
+  function bar(a: Vec3,b: Vec3,r=.055) {
     const start=new THREE.Vector3(...a),end=new THREE.Vector3(...b),direction=end.clone().sub(start);
     const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,direction.length(),8),silver);
     m.position.copy(start.add(end).multiplyScalar(.5));m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());group.add(m);
@@ -65,13 +66,14 @@ export function createStudio(scene) {
     const x=side*(17+row*1.7),z=-5+i*2.1;
     box(.9,.2,1,x,-.25+row*.3,z,metal);box(.15,.95,1,x+side*.4,.15+row*.3,z,metal);
   }
-  let currentGame = null;
+  let currentGame: Game | null = null;
   const logo = new Image();
   const studio = {
-    update(game) {
+    update(game: Game) {
       currentGame = game;
       group.scale.setScalar(Math.max(game.field.width,game.field.height)/12);
       const ctx=screenCanvas.getContext('2d');
+      if(!ctx) throw new Error('Canvas 2D unavailable');
       ctx.fillStyle='#071022';ctx.fillRect(0,0,2048,576);
       ctx.strokeStyle='#1d314d';ctx.lineWidth=2;
       for(let x=0;x<2048;x+=64){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,576);ctx.stroke();}

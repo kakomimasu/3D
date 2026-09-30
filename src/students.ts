@@ -1,21 +1,22 @@
 import * as THREE from 'three';
+import type { Vec3 } from './types.ts';
 
 // Seated, stylized students facing +Z toward the keyboard and monitor.
-export function createStudent({team, variant = 0}) {
+export function createStudent({team, variant = 0}: {team: 'blue' | 'red'; variant?: number}) {
   const person = new THREE.Group();
-  const material = color => new THREE.MeshStandardMaterial({color,roughness:.85});
+  const material = (color: THREE.ColorRepresentation) => new THREE.MeshStandardMaterial({color,roughness:.85});
   const skin = material(variant ? '#e6b28f' : '#f2c6a2');
   const hair = material(variant ? '#44322e' : '#20232c');
   const shirt = material(variant ? '#d5dce5' : team === 'blue' ? '#5b9dcc' : '#cb6d80');
   const trousers = material('#28364b'), shoes = material('#eeeeeb'), ink = material('#202736');
   const accent = material(team === 'blue' ? '#48bfff' : '#ff6479');
-  function mesh(geometry, mat, x,y,z) {
+  function mesh(geometry: THREE.BufferGeometry, mat: THREE.Material, x: number,y: number,z: number) {
     const m=new THREE.Mesh(geometry,mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;person.add(m);return m;
   }
-  function sphere(mat,x,y,z,sx,sy,sz) {
+  function sphere(mat: THREE.Material,x: number,y: number,z: number,sx: number,sy: number,sz: number) {
     const m=mesh(new THREE.SphereGeometry(1,16,12),mat,x,y,z);m.scale.set(sx,sy,sz);return m;
   }
-  function limb(mat,a,b,r) {
+  function limb(mat: THREE.Material,a: Vec3,b: Vec3,r: number) {
     const start=new THREE.Vector3(...a),end=new THREE.Vector3(...b),v=end.clone().sub(start);
     const m=mesh(new THREE.CylinderGeometry(r,r,v.length(),12),mat,0,0,0);
     m.position.copy(start.add(end).multiplyScalar(.5));m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),v.normalize());
