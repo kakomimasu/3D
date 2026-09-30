@@ -135,6 +135,7 @@ export function createStudio(scene: THREE.Scene) {
       const student = createStudent({
         team: side < 0 ? "blue" : "red",
         variant: offset > 0 ? 1 : 0,
+        outfit: (side < 0 ? 0 : 2) + (offset > 0 ? 1 : 0),
       });
       student.position.set(side * 10 + offset, 0, -4.4);
       group.add(student);
@@ -200,22 +201,14 @@ export function createStudio(scene: THREE.Scene) {
     }
   }
   let lightTime = 0;
-  // 同じモデルの形状とマテリアルを共有し、30人分の描画負荷を抑える。
-  const spectators = [
-    "#709ab5",
-    "#be8374",
-    "#d3c6a5",
-    "#758c79",
-    "#a493b8",
-    "#c3cad5",
-  ].map((shirtColor, variant) =>
+  // 12通りの服装を共有し、30人分の描画負荷を抑える。
+  const spectators = Array.from({ length: 12 }, (_, variant) =>
     createStudent({
       team: "blue",
       variant: variant % 2,
       spectator: true,
-      shirtColor,
-    })
-  );
+      outfit: variant,
+    }));
   for (let row = 0; row < 3; row++) {
     for (const side of [-1, 1]) {
       const height = 1.5 + row * .3;
@@ -237,7 +230,7 @@ export function createStudio(scene: THREE.Scene) {
         box(.9, .2, 1, x, -.25 + row * .3, z, metal);
         box(.15, .95, 1, x + side * .4, .15 + row * .3, z, metal);
         const person =
-          spectators[(row * 5 + i + (side > 0 ? 3 : 0)) % spectators.length]
+          spectators[(row * 5 + i * 7 + (side > 0 ? 4 : 0)) % spectators.length]
             .clone();
         person.position.set(x, -.15 + row * .3, z);
         person.rotation.y = -side * Math.PI / 2;
