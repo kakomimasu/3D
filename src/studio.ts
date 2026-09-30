@@ -90,9 +90,12 @@ export function createStudio(scene: THREE.Scene) {
   }
   for (const y of [8.4, 9]) bar([-13, y, -10], [13, y, -10]);
   for (let x = -13; x < 13; x++) bar([x, 8.4, -10], [x + 1, 9, -10]);
+  const lightOrigins: THREE.Vector3[] = [];
   for (let x = -11; x <= 11; x += 3.7) {
     box(.6, .5, .8, x, 8.15, -9.9, metal);
-    box(.46, .12, .5, x, 7.85, -9.7, x < 0 ? blueLight : redLight);
+    const lens = box(.46, .12, .5, x, 7.85, -9.7, x < 0 ? blueLight : redLight);
+    // Use the center of the emitting underside for both the beam and its halo.
+    lightOrigins.push(lens.position.clone().add(new THREE.Vector3(0, -.06, 0)));
   }
   // 選手席：顔を隠さない低いノートパソコンを各席に配置。
   for (const side of [-1, 1]) {
@@ -210,8 +213,8 @@ export function createStudio(scene: THREE.Scene) {
   beamGeometry.translate(0, -.5, 0);
   const beamAxis = new THREE.Vector3(0, -1, 0);
   const beamDirection = new THREE.Vector3();
-  const movingHeads = Array.from({ length: 8 }, (_, index) => {
-    const side = index < 4 ? -1 : 1;
+  const movingHeads = lightOrigins.map((origin, index) => {
+    const side = origin.x < 0 ? -1 : 1;
     const color = new THREE.Color(side < 0 ? "#36bcff" : "#ff5469");
     const material = new THREE.ShaderMaterial({
       uniforms: { tint: { value: color }, strength: { value: .22 } },
@@ -240,7 +243,7 @@ export function createStudio(scene: THREE.Scene) {
       blending: THREE.AdditiveBlending,
     });
     const beam = new THREE.Mesh(beamGeometry, material);
-    beam.position.set(side * (3 + index % 4 * 2.6), 7.85, -9.65);
+    beam.position.copy(origin);
     group.add(beam);
     const halo = new THREE.Sprite(
       new THREE.SpriteMaterial({
@@ -255,7 +258,7 @@ export function createStudio(scene: THREE.Scene) {
     halo.position.copy(beam.position);
     halo.scale.setScalar(1.1);
     group.add(halo);
-    return { beam, halo, side, phase: index % 4 * .65 };
+    return { beam, halo, side, phase: index % 3 * .65 };
   });
   let lightTime = 0;
   // 12通りの服装を共有し、30人分の描画負荷を抑える。
