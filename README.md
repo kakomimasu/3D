@@ -15,17 +15,19 @@
 
 ## 開発
 
+Deno 2.9.7を使用します。依存関係は`deno.lock`で固定しています。Node.js・npmのインストールは不要です。
+
 ```sh
-npm install
-npm run dev
+deno install --frozen
+deno task dev
 ```
 
 表示されたURL（通常は `http://127.0.0.1:5173/3D/`）を開いてください。
 
 ```sh
-npm run typecheck # 型チェック
-npm test          # テスト
-npm run build     # 型チェック・ビルド（dist/に出力）
+deno task typecheck # 型チェック
+deno task test          # テスト
+deno task build     # 型チェック・ビルド（dist/に出力）
 ```
 
 `main`へのpushでGitHub Actionsがテスト・ビルドし、GitHub Pagesへ公開します。

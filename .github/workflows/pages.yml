@@ -17,13 +17,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: denoland/setup-deno@v2
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
+          deno-version: v2.9.7
+      - run: deno install --frozen
+      - run: deno task test
+      - run: deno task build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
