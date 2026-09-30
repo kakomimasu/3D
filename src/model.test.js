@@ -20,3 +20,19 @@ test('empty and waiting match lists are supported',async()=>{
   assert.equal(matchSummaries([{id:'waiting',startedAtUnixTime:null}])[0].status,'開始待ち');
   const url=new URL(matchListUrl());assert.equal(url.searchParams.get('allowNewGame'),'false');assert.equal(url.searchParams.get('q'),'sort:startAtUnixTime-desc type:normal');
 });
+
+test('startup picks latest game but explicit match id takes priority', async()=>{
+  const {selectMatch}=await import('./model.js');
+  const old={id:'old',startedAtUnixTime:100},recent={id:'recent',startedAtUnixTime:200};
+  const initial={type:'initial',games:[old,recent]};
+  assert.equal(selectMatch(initial,null),recent);
+  assert.equal(selectMatch(initial,'old'),old);
+  assert.equal(selectMatch(initial,'missing'),null);
+  assert.equal(selectMatch({type:'initial',games:[]},null),null);
+});
+test('stream only updates selected match and does not replace it with new games',async()=>{
+  const {selectMatch}=await import('./model.js');const game={id:'chosen'};
+  assert.equal(selectMatch({type:'update',game},'chosen'),game);
+  assert.equal(selectMatch({type:'update',game},'other'),null);
+  assert.equal(selectMatch({type:'add',game},'chosen'),null);
+});

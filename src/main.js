@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import './style.css';
 import { createStudio } from './studio.js';
-import { validateGame, streamUrl, scores, demoGame, matchListUrl, matchSummaries } from './model.js';
+import { validateGame, streamUrl, scores, demoGame, matchListUrl, matchSummaries, selectMatch } from './model.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('scene');
@@ -104,27 +104,33 @@ $('numbers').onchange=()=>numberMeshes.forEach(m=>m.visible=$('numbers').checked
 function showDemo(){closeStream();stopDemo();mode='demo';demoTurn=1;draw(demoGame());$('play').disabled=false;$('step').disabled=false;$('connection').textContent='デモ表示';$('match-title').textContent='サンプル対戦';$('message').textContent='青と赤の壁、淡い色の囲み領域を表示します。';history.replaceState(null,'',location.pathname);}
 $('demo').onclick=showDemo;
 function connect(id){
-  $('game-id').value=id;
+  $('game-id').value=id || '';
   closeStream();stopDemo();mode='live';$('play').disabled=true;$('step').disabled=true;$('connection').textContent='接続中…';$('message').textContent='対戦データを待っています。盤面は受信後に切り替わります。';
-  const s=new EventSource(streamUrl(id));socket=s;let received=false;
-  connectionTimer=setTimeout(()=>{if(!received){$('connection').textContent='データ未受信';$('message').textContent='対戦が見つかりません。IDと通信状況を確認してください。';}},15000);
+  const s=new EventSource(id ? streamUrl(id) : matchListUrl());socket=s;let received=false, selectedId=id || null;
+  if (!id) { $('connection').textContent='最新ゲームを取得中…'; $('message').textContent='最新の公開ゲームに自動接続しています。'; }
+  const fallback = message => { if(socket!==s)return; showDemo(); $('message').textContent=message+' デモを表示しています。ゲーム一覧から再選択できます。'; };
+  connectionTimer=setTimeout(()=>{if(socket!==s)return;if(!received){if(!id){fallback('最新ゲームの取得がタイムアウトしました。');return;}$('connection').textContent='データ未受信';$('message').textContent='対戦が見つかりません。IDと通信状況を確認してください。';}},15000);
   s.onmessage=e=>{
     if(socket!==s)return;
     try{
       const data=JSON.parse(e.data);
-      const candidate=data.type==='initial'?data.games?.find(g=>g.id===id):data.game;
-      if(!candidate||candidate.id!==id)return;
-      draw(candidate);received=true;clearTimeout(connectionTimer);$('connection').textContent=candidate.ending||candidate.status==='ended'?'対戦終了':'観戦中';$('match-title').textContent=candidate.status==='ended'?'終了した対戦':'ライブ対戦';$('message').textContent='対戦の更新を自動で反映しています。';
-      const url=new URL(location.href);url.searchParams.set('id',id);history.replaceState(null,'',url);
-    }catch(err){$('connection').textContent='データ読込エラー';$('message').textContent=err.message;}
+      const candidate=selectMatch(data, selectedId);
+      if(!candidate){
+        if(!id && !received && data.type==='initial' && Array.isArray(data.games) && !data.games.length) fallback('公開ゲームがありません。');
+        return;
+      }
+      draw(candidate);selectedId=candidate.id;$('game-id').value=selectedId;received=true;clearTimeout(connectionTimer);$('connection').textContent=candidate.ending||candidate.status==='ended'?'対戦終了':'観戦中';$('match-title').textContent=candidate.status==='ended'?'終了した対戦':'ライブ対戦';$('message').textContent='対戦の更新を自動で反映しています。';
+      if(id){const url=new URL(location.href);url.searchParams.set('id',id);history.replaceState(null,'',url);}
+    }catch(err){if(!id&&!received){fallback('最新ゲームを読み取れませんでした。');return;}$('connection').textContent='データ読込エラー';$('message').textContent=err.message;}
   };
-  s.onerror=()=>{if(socket===s){$('connection').textContent='再接続中…';$('message').textContent='接続が途切れました。自動で再接続します。表示中の盤面は最後に受信した状態です。';}};
+  s.onerror=()=>{if(socket===s){if(!id&&!received){fallback('最新ゲームを取得できませんでした。');return;}$('connection').textContent='再接続中…';$('message').textContent='接続が途切れました。自動で再接続します。表示中の盤面は最後に受信した状態です。';}};
 }
 $('connect').onsubmit=e=>{e.preventDefault();const id=$('game-id').value.trim();if(id)connect(id);};
 new ResizeObserver(()=>{const {width,height}=canvas.parentElement.getBoundingClientRect();renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();if(game)setView(view);}).observe(canvas.parentElement);
 renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera);});
 draw(demoGame());
-const id=new URLSearchParams(location.search).get('id');if(id){$('game-id').value=id;connect(id);}
+const id=new URLSearchParams(location.search).get('id')?.trim();
+connect(id || null);
 window.addEventListener('pagehide',()=>{closeStream();stopDemo();renderer.setAnimationLoop(null);});
 
 // The public stream provides the latest match list in its initial event.

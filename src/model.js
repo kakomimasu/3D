@@ -53,3 +53,13 @@ export function matchSummaries(games) {
     turn: Number.isInteger(g.turn) ? g.turn : 0,
   })).sort((a,b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
 }
+
+// A pinned match must never be replaced by another match's stream update.
+export function selectMatch(event, selectedId) {
+  if (event?.type === 'initial') {
+    const id = selectedId || matchSummaries(event.games)[0]?.id;
+    return event.games?.find(game => game?.id === id) ?? null;
+  }
+  if (event?.type === 'update' && selectedId && event.game?.id === selectedId) return event.game;
+  return null;
+}
