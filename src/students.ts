@@ -2,12 +2,12 @@ import * as THREE from 'three';
 import type { Vec3 } from './types.ts';
 
 // Seated, stylized students facing +Z toward the keyboard and monitor.
-export function createStudent({team, variant = 0}: {team: 'blue' | 'red'; variant?: number}) {
+export function createStudent({team, variant = 0, spectator = false, shirtColor}: {team: 'blue' | 'red'; variant?: number; spectator?: boolean; shirtColor?: THREE.ColorRepresentation}) {
   const person = new THREE.Group();
   const material = (color: THREE.ColorRepresentation) => new THREE.MeshStandardMaterial({color,roughness:.85});
   const skin = material(variant ? '#e6b28f' : '#f2c6a2');
   const hair = material(variant ? '#44322e' : '#20232c');
-  const shirt = material(variant ? '#d5dce5' : team === 'blue' ? '#5b9dcc' : '#cb6d80');
+  const shirt = material(shirtColor ?? (variant ? '#d5dce5' : team === 'blue' ? '#5b9dcc' : '#cb6d80'));
   const trousers = material('#28364b'), shoes = material('#eeeeeb'), ink = material('#202736');
   const accent = material(team === 'blue' ? '#48bfff' : '#ff6479');
   function mesh(geometry: THREE.BufferGeometry, mat: THREE.Material, x: number,y: number,z: number) {
@@ -33,15 +33,23 @@ export function createStudent({team, variant = 0}: {team: 'blue' | 'red'; varian
   sphere(skin,0,1.23,.398,.035,.04,.045);
   // Lanyard and participant badge.
   for(const side of [-1,1]){
-    limb(accent,[side*.13,.97,.235],[0,.61,.285],.012);
+    if(!spectator) limb(accent,[side*.13,.97,.235],[0,.61,.285],.012);
+    if(spectator){
+      limb(shirt,[side*.25,.87,.13],[side*.32,.43,.2],.105);
+      limb(shirt,[side*.32,.43,.2],[side*.19,.31,.47],.085);
+      sphere(skin,side*.19,.29,.49,.085,.05,.10);
+    }else{
     limb(shirt,[side*.25,.87,.13],[side*.36,1.1,.32],.105);
     limb(shirt,[side*.36,1.1,.32],[side*.22,1.08,.66],.085);
     sphere(skin,side*.21,1.065,.72,.085,.045,.10);
+    }
     limb(trousers,[side*.17,.18,.06],[side*.19,.05,.5],.12);
     limb(trousers,[side*.19,.05,.5],[side*.19,-.68,.54],.10);
     sphere(shoes,side*.19,-.74,.66,.13,.09,.23);
   }
+  if(!spectator){
   mesh(new THREE.BoxGeometry(.17,.22,.025),shoes,0,.53,.3);
   mesh(new THREE.BoxGeometry(.13,.045,.028),accent,0,.585,.316);
+  }
   return person;
 }

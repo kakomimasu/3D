@@ -11,6 +11,7 @@
     <canvas id="scene" aria-label="回転・拡大できる囲みマスの3D盤面"></canvas>
     <div class="stage-top">
       <details class="options"><summary>操作</summary><div class="options-panel">
+        <label><input id="auto-camera" type="checkbox" checked> カメラを自動で動かす</label>
         <label><input id="numbers" type="checkbox" checked> マスの得点を表示</label>
         <button id="demo">デモに切り替え</button>
         <div class="controls"><button id="play">▶ デモを再生</button><button id="step" aria-label="デモを1ターン進める">1ターン進む →</button></div>
@@ -21,6 +22,7 @@
       </div>
     </div>
     <div class="stage-bottom"><p id="message" aria-live="polite"></p><div id="tile-info">マスにカーソルを合わせると詳細を表示</div><span class="hint">ドラッグで回転 ／ スクロールで拡大 ／ 右ドラッグで移動</span></div>
+    <div class="commentary-caption" id="commentary-caption" role="status" aria-live="polite"></div>
     <p id="score-summary" class="sr-only" aria-live="polite"></p>
     <div id="fatal" hidden></div>
   </section>

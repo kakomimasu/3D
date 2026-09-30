@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import './style.css';
+import { createCommentator } from './commentary.ts';
 import { createStudio } from './studio.ts';
 import { validateGame, streamUrl, scores, demoGame, matchListUrl, matchSummaries, selectMatch, isRecord } from './model.ts';
 
 import type { Game, ViewMode } from './types.ts';
 
 function $(id: 'scene'): HTMLCanvasElement;
-function $(id: 'numbers' | 'game-id'): HTMLInputElement;
+function $(id: 'numbers' | 'game-id' | 'auto-camera'): HTMLInputElement;
 function $(id: 'play' | 'step' | 'refresh-games'): HTMLButtonElement;
 function $(id: 'games-dialog'): HTMLDialogElement;
 function $(id: string): HTMLElement;
@@ -29,12 +30,21 @@ scene.fog=fog;
 const camera = new THREE.PerspectiveCamera(38,1,.1,600);
 const controls = new OrbitControls(camera,canvas);
 controls.enableDamping=true; controls.maxPolarAngle=Math.PI/2-.08; controls.minDistance=5; controls.maxDistance=400;
+// 正面を中心に往復し、会場の裏側へ回り込まないようにする。
+let cameraMotionTime=0, cameraResumeAt=0, cameraInteracting=false;
+let previousFrameTime=performance.now();
+const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+$('auto-camera').checked=!reducedMotion.matches;
+controls.addEventListener('start',()=>{cameraInteracting=true;controls.autoRotate=false;});
+controls.addEventListener('end',()=>{cameraInteracting=false;cameraResumeAt=performance.now()+4000;});
+$('auto-camera').onchange=()=>{controls.autoRotate=false;cameraResumeAt=0;};
 scene.add(new THREE.HemisphereLight('#c5d9ff','#121b34',1.8));
 const sun = new THREE.DirectionalLight('#eaf2ff',3.5); sun.position.set(-8,18,8); sun.castShadow=true; sun.shadow.mapSize.set(2048,2048); sun.shadow.camera.left=-35; sun.shadow.camera.right=35; sun.shadow.camera.top=35; sun.shadow.camera.bottom=-35; sun.shadow.camera.far=80; sun.shadow.normalBias=.04; scene.add(sun);
 const fill = new THREE.DirectionalLight('#7cb6d8',1.2); fill.position.set(8,7,-10); scene.add(fill);
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(250,250),new THREE.MeshStandardMaterial({color:'#0c1322',roughness:1})); ground.rotation.x=-Math.PI/2;ground.position.y=-2.5;ground.receiveShadow=true;scene.add(ground);
 const board = new THREE.Group(); scene.add(board);
 const studio=createStudio(scene);
+const commentator=createCommentator($('commentary-caption'));
 let game: Game;
 let meshes: THREE.Mesh[] = [], numberMeshes: THREE.Mesh[] = [], pawns: THREE.Group[] = [];
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -62,6 +72,7 @@ function clearBoard() {
 }
 function positionFor(x: number,y: number): [number, number] { return [x-(game.field.width-1)/2,y-(game.field.height-1)/2]; }
 function setView(next: ViewMode) {
+  controls.autoRotate=false;cameraMotionTime=0;
   view=next; const d=Math.max(game.field.width,game.field.height);
   controls.target.set(0,next==='studio'?d*.12:0,next==='studio'?-d*.16:0);
   const fov = 2*Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov)/2)*Math.min(camera.aspect,1));
@@ -71,7 +82,7 @@ function setView(next: ViewMode) {
   if(next==='players'){
     const scale=d/12;
     controls.target.set(-10*scale,.65*scale,-3.7*scale);
-    camera.position.copy(new THREE.Vector3(4,2.7,-2.5).normalize().multiplyScalar(7*scale/Math.min(camera.aspect,1)).add(controls.target));
+    camera.position.copy(new THREE.Vector3(3,2.4,4).normalize().multiplyScalar(7*scale/Math.min(camera.aspect,1)).add(controls.target));
   }
   $('players').classList.toggle('active',next==='players');
   controls.update();$('studio').classList.toggle('active',next==='studio');$('angle').classList.toggle('active',next==='angle');$('top').classList.toggle('active',next==='top');
@@ -112,6 +123,7 @@ function draw(value: unknown) {
     return `${p.name||p.id||(pid?'RED':'BLUE')} ${score.wall+score.area}点`;
   }).join(' 対 ')+`、ターン ${game.turn??game.log?.length??0}`;
   studio.update(game);
+  commentator.update(game);
   if(rebuild)setView(view);
 }
 const raycaster=new THREE.Raycaster(),mouse=new THREE.Vector2();
@@ -157,7 +169,19 @@ function connect(id: string | null){
 }
 $('connect').onsubmit=e=>{e.preventDefault();const id=$('game-id').value.trim();if(id){$('games-dialog').close();connect(id);}};
 new ResizeObserver(()=>{const {width,height}=canvas.parentElement!.getBoundingClientRect();renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();if(game)setView(view);}).observe(canvas.parentElement!);
-renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera);});
+renderer.setAnimationLoop(()=>{
+  const now=performance.now();
+  const delta=Math.min((now-previousFrameTime)/1000,.05);
+  previousFrameTime=now;
+  controls.autoRotate=$('auto-camera').checked&&!cameraInteracting&&now>=cameraResumeAt&&!document.hidden&&!$('games-dialog').open;
+  if(controls.autoRotate){
+    cameraMotionTime+=delta;
+    controls.autoRotateSpeed=.35*Math.cos(cameraMotionTime*Math.PI*2/80);
+  }
+  controls.update(delta);
+  studio.animate(delta,reducedMotion.matches);
+  renderer.render(scene,camera);
+});
 draw(demoGame());
 const id=new URLSearchParams(location.search).get('id')?.trim();
 connect(id || null);
