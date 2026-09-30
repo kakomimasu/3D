@@ -1,6 +1,12 @@
 export type PlayerId = 0 | 1;
-export interface Tile { type: 0 | 1; player: PlayerId | -1 | null }
-export interface Agent { x: number; y: number }
+export interface Tile {
+  type: 0 | 1;
+  player: PlayerId | -1 | null;
+}
+export interface Agent {
+  x: number;
+  y: number;
+}
 export interface Player {
   id?: string;
   name?: string;
@@ -26,5 +32,5 @@ export interface MatchSummary {
   startedAt: number | null;
   turn: number;
 }
-export type ViewMode = 'studio' | 'players' | 'angle' | 'top';
+export type ViewMode = "studio" | "players" | "angle" | "top";
 export type Vec3 = [number, number, number];
