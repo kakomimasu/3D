@@ -142,19 +142,20 @@ export function createStudio(scene: THREE.Scene) {
       box(.10, .035, .17, side * 10 + offset + .48, 1.03, -3.66, dark);
     }
   }
+  const chaseLights: {
+    material: THREE.MeshBasicMaterial;
+    phase: number;
+    side: number;
+  }[] = [];
   // Side light pillars and distant auditorium seating.
   for (const side of [-1, 1]) {
     for (const z of [-7, 1, 6]) {
       box(.35, 4, .35, side * 13.5, 1, z, metal);
-      box(
-        .06,
-        3.4,
-        .08,
-        side * 13.5,
-        1,
-        z + .2,
-        side < 0 ? blueLight : redLight,
-      );
+      for (let segment = 0; segment < 10; segment++) {
+        const material = (side < 0 ? blue : red).clone();
+        box(.10, .26, .10, side * 13.5, -.5 + segment * .34, z + .2, material);
+        chaseLights.push({ material, phase: segment * .48 + z * .2, side });
+      }
     }
   }
   // 柔らかな床の光だまりと、選手席を照らす補助光。
@@ -200,6 +201,58 @@ export function createStudio(scene: THREE.Scene) {
       });
     }
   }
+  // Soft additive cones make the moving heads visible without extra shadow maps.
+  const beamGeometry = new THREE.CylinderGeometry(.055, 1, 1, 24, 1, true);
+  beamGeometry.translate(0, -.5, 0);
+  const beamAxis = new THREE.Vector3(0, -1, 0);
+  const beamDirection = new THREE.Vector3();
+  const movingHeads = Array.from({ length: 8 }, (_, index) => {
+    const side = index < 4 ? -1 : 1;
+    const color = new THREE.Color(side < 0 ? "#36bcff" : "#ff5469");
+    const material = new THREE.ShaderMaterial({
+      uniforms: { tint: { value: color }, strength: { value: .22 } },
+      vertexShader: `
+        varying vec2 beamUv;
+        void main() {
+          beamUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 tint;
+        uniform float strength;
+        varying vec2 beamUv;
+        void main() {
+          float fade = smoothstep(0.0, 0.28, beamUv.y);
+          float body = 0.25 + 0.75 * pow(beamUv.y, 1.5);
+          gl_FragColor = vec4(tint, strength * fade * body);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    });
+    const beam = new THREE.Mesh(beamGeometry, material);
+    beam.position.set(side * (3 + index % 4 * 2.6), 7.85, -9.65);
+    group.add(beam);
+    const halo = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: glowTexture,
+        color,
+        transparent: true,
+        opacity: .9,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    halo.position.copy(beam.position);
+    halo.scale.setScalar(1.1);
+    group.add(halo);
+    return { beam, halo, side, phase: index % 4 * .65 };
+  });
   let lightTime = 0;
   // 12通りの服装を共有し、30人分の描画負荷を抑える。
   const spectators = Array.from({ length: 12 }, (_, variant) =>
@@ -243,21 +296,57 @@ export function createStudio(scene: THREE.Scene) {
   const studio = {
     animate(delta: number, reducedMotion: boolean) {
       if (!reducedMotion) lightTime += delta;
+      const time = reducedMotion ? 0 : lightTime;
       const wave = (phase: number) =>
-        reducedMotion
-          ? .65
-          : .5 + .5 * Math.sin(lightTime * Math.PI / 4 + phase);
-      blueLight.color.copy(blue.color).multiplyScalar(.45 + .65 * wave(0));
-      redLight.color.copy(red.color).multiplyScalar(.45 + .65 * wave(Math.PI));
+        reducedMotion ? .65 : .5 + .5 * Math.sin(time * Math.PI / 1.8 + phase);
+      blueLight.color.copy(blue.color).multiplyScalar(.6 + 1.1 * wave(0));
+      redLight.color.copy(red.color).multiplyScalar(.6 + 1.1 * wave(Math.PI));
       accentLights.forEach((light, index) => {
-        light.intensity = (20 + 30 * wave(index * Math.PI)) *
+        light.intensity = (30 + 45 * wave(index * Math.PI)) *
           group.scale.x ** 2;
         light.distance = 14 * group.scale.x;
       });
       for (const { mesh, phase } of floorGlows) {
         const pulse = wave(phase);
-        mesh.material.opacity = .25 + .45 * pulse;
-        mesh.scale.setScalar(.85 + .25 * pulse);
+        mesh.material.opacity = .4 + .5 * pulse;
+        mesh.scale.set(1 + .5 * pulse, 1 + .35 * pulse, 1);
+        mesh.position.x = Math.sign(mesh.position.x) *
+          (11.8 + .65 * Math.sin(time * .85 + phase));
+        mesh.rotation.z = .2 * Math.sin(time * .7 + phase);
+      }
+      for (const { material, phase, side } of chaseLights) {
+        const chase = reducedMotion
+          ? .7
+          : Math.pow(.5 + .5 * Math.sin(time * 2.8 - phase), 3);
+        material.color.copy(side < 0 ? blue.color : red.color).multiplyScalar(
+          .3 + 1.8 * chase,
+        );
+      }
+      for (const { beam, halo, side, phase } of movingHeads) {
+        const sweep = Math.sin(time * .65 + phase);
+        // Aim down the side aisles to keep the center of the board readable.
+        beamDirection.set(
+          side * (9.5 + 3 * sweep),
+          -.9,
+          2 + 4 * Math.cos(time * .5 + phase),
+        );
+        beamDirection.sub(beam.position);
+        const length = beamDirection.length();
+        beam.quaternion.setFromUnitVectors(beamAxis, beamDirection.normalize());
+        beam.scale.set(
+          1.1 + .45 * wave(phase),
+          length,
+          1.1 + .45 * wave(phase),
+        );
+        const tint = beam.material.uniforms.tint.value as THREE.Color;
+        tint.setHSL(
+          (side < 0 ? .54 : .96) + .035 * Math.sin(time * .4 + phase),
+          .95,
+          .63,
+        );
+        beam.material.uniforms.strength.value = .14 + .15 * wave(phase);
+        halo.material.color.copy(tint);
+        halo.scale.setScalar(.85 + .65 * wave(phase));
       }
     },
     update(game: Game) {
