@@ -174,7 +174,20 @@ export function createStudent(
     m.position.copy(start.add(end).multiplyScalar(.5));
     m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.normalize());
   }
+  // Group finished parts around joints, preserving their original resting pose.
+  function joint(name: string, pivot: Vec3, parts: THREE.Object3D[]) {
+    const group = new THREE.Group();
+    group.name = name;
+    group.position.set(...pivot);
+    for (const part of parts) {
+      part.position.sub(group.position);
+      group.add(part);
+    }
+    person.add(group);
+    return group;
+  }
   sphere(trousers, 0, .18, .04, .3, .19, .24);
+  const seatedParts = new Set(person.children);
   const torso = mesh(
     new THREE.CylinderGeometry(.27, .3, .7, 16),
     shirt,
@@ -224,6 +237,7 @@ export function createStudent(
     mesh(new THREE.BoxGeometry(.10, .11, .025), trim, -.13, .79, .286);
   }
   limb(skin, [0, .95, .12], [0, 1.1, .15], .1);
+  const headStart = person.children.length;
   sphere(skin, 0, 1.29, .17, .24, .28, .225);
   sphere(hair, 0, 1.43, .13, .25, .17, .23);
   if (appearance.hair === "short") {
@@ -284,11 +298,13 @@ export function createStudent(
       sphere(trim, side * .307, 1.30, .13, .028, .082, .077);
     }
   }
+  joint("head", [0, 1.08, .15], person.children.slice(headStart));
   // Lanyard and participant badge.
   for (const side of [-1, 1]) {
     const sleeve = look.style === "vest" ? trim : shirt;
     const forearm = look.style === "tee" ? skin : sleeve;
     if (!spectator) limb(accent, [side * .13, .97, .235], [0, .61, .285], .012);
+    const armStart = person.children.length;
     if (spectator) {
       limb(sleeve, [side * .25, .87, .13], [side * .285, .65, .165], .11);
       limb(look.style === "tee" ? skin : sleeve, [side * .285, .65, .165], [
@@ -308,13 +324,102 @@ export function createStudent(
       limb(forearm, [side * .36, 1.1, .32], [side * .22, 1.08, .66], .085);
       sphere(skin, side * .21, 1.065, .72, .085, .045, .10);
     }
+    const armParts = person.children.slice(armStart);
+    const forearmJoint = joint(
+      `forearm-${side}`,
+      spectator ? [side * .32, .43, .2] : [side * .36, 1.1, .32],
+      armParts.slice(2),
+    );
+    joint(`arm-${side}`, [side * .25, .87, .13], [
+      ...armParts.slice(0, 2),
+      forearmJoint,
+    ]);
+    const legStart = person.children.length;
     limb(trousers, [side * .17, .18, .06], [side * .19, .05, .5], .12);
     limb(trousers, [side * .19, .05, .5], [side * .19, -.68, .54], .10);
     sphere(shoes, side * .19, -.74, .66, .13, .09, .23);
+    for (const part of person.children.slice(legStart)) seatedParts.add(part);
   }
   if (!spectator) {
     mesh(new THREE.BoxGeometry(.17, .22, .025), badge, 0, .53, .33);
     mesh(new THREE.BoxGeometry(.13, .045, .028), accent, 0, .585, .346);
   }
+  joint(
+    "upper-body",
+    [0, .18, .04],
+    person.children.filter((part) => !seatedParts.has(part)),
+  );
   return person;
+}
+
+// Bind after cloning: every audience member owns its joints while sharing meshes.
+export function createStudentMotion(
+  person: THREE.Group,
+  spectator: boolean,
+  seed: number,
+) {
+  const part = (name: string) => {
+    const object = person.getObjectByName(name);
+    if (!object) throw new Error(`Missing student joint: ${name}`);
+    return object;
+  };
+  const upper = part("upper-body"), head = part("head");
+  const arms = [-1, 1].map((side) => part(`arm-${side}`));
+  const forearms = [-1, 1].map((side) => part(`forearm-${side}`));
+  const phase = seed * 2.39996;
+  const tempo = .86 + (seed % 7) * .047;
+  return (time: number, reducedMotion: boolean) => {
+    if (reducedMotion) {
+      for (const joint of [upper, head, ...arms, ...forearms]) {
+        joint.rotation.set(0, 0, 0);
+      }
+      return;
+    }
+    const t = time * tempo + phase;
+    if (spectator) {
+      // Ambient cheering, independent of match results. Staggered bursts leave
+      // some people watching while others clap, wave or pump a fist.
+      const energy = THREE.MathUtils.smoothstep(Math.sin(t * .62), -.85, -.15);
+      const beat = .5 + .5 * Math.sin(t * 10);
+      upper.rotation.x = -.035 - energy * (.035 + .045 * Math.sin(t * 5));
+      upper.rotation.z = Math.sin(t * 2.6) * (.02 + energy * .045);
+      head.rotation.x = energy * .07 * Math.sin(t * 5 + .4);
+      head.rotation.y = Math.sin(t * .7) * .16;
+      head.rotation.z = Math.sin(t * 2.6 + .5) * .04;
+      for (let i = 0; i < 2; i++) {
+        const side = i === 0 ? -1 : 1;
+        arms[i].rotation.set(0, 0, 0);
+        forearms[i].rotation.set(0, 0, 0);
+        if (seed % 3 === 0) {
+          // Bring both hands together in front of the chest.
+          arms[i].rotation.x = -1.05 * energy;
+          forearms[i].rotation.x = -.9 * energy;
+          forearms[i].rotation.y = -side * (.15 + .35 * beat) * energy;
+        } else {
+          const raised = seed % 3 === 1 || i === seed % 2;
+          if (raised) {
+            arms[i].rotation.z = side * energy *
+              (2.5 + .16 * Math.sin(t * 5 + i));
+            arms[i].rotation.x = -.25 * energy;
+            forearms[i].rotation.x = -energy * (.45 + .25 * beat);
+          } else {
+            forearms[i].rotation.x = -.3 * energy;
+          }
+        }
+      }
+      return;
+    }
+    const pause = THREE.MathUtils.smoothstep(Math.sin(t * .48), .3, .8);
+    upper.rotation.x = Math.sin(t * 1.3) * .012 - pause * .035;
+    upper.rotation.z = Math.sin(t * .65) * .009;
+    head.rotation.x = .035 * Math.sin(t * 1.7) - pause * .09;
+    head.rotation.y = Math.sin(t * .55) * .10 * pause;
+    head.rotation.z = Math.sin(t * .8) * .035;
+    for (let i = 0; i < 2; i++) {
+      arms[i].rotation.z = 0;
+      // A short lift at the elbow reads as tapping without moving through the desk.
+      forearms[i].rotation.x = -.075 * (1 - pause) *
+        (.5 + .5 * Math.sin(t * 16 + i * Math.PI));
+    }
+  };
 }
