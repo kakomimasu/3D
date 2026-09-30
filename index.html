@@ -1,7 +1,35 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#102124"><title>囲みマス 3D</title><link rel="icon" type="image/svg+xml" href="%BASE_URL%img/kakomimasu-logo.svg"></head>
-<body><main><header><a class="brand" href="./"><img class="official-logo" src="%BASE_URL%img/kakomimasu-logo.svg" alt="囲みマス"><b class="brand-edition">3D</b></a><span id="connection" role="status">デモ表示</span></header><section class="workspace"><aside><div class="match-head"><span id="match-title">サンプル対戦</span><span id="turn">TURN 01</span></div><div class="team blue"><div><span class="dot"></span><span id="name0">BLUE</span></div><strong id="score0">0</strong><small id="detail0"></small></div><div class="team red"><div><span class="dot"></span><span id="name1">RED</span></div><strong id="score1">0</strong><small id="detail1"></small></div><div class="controls"><button id="play" class="primary">▶ デモを再生</button><button id="step" aria-label="デモを1ターン進める">1ターン進む →</button></div><p class="note">デモは表示確認用のサンプルです。</p><button id="open-games" class="primary browse-games">ゲーム一覧から選ぶ →</button><form id="connect"><label for="game-id">実際の対戦を観戦</label><div class="input-row"><input id="game-id" placeholder="対戦IDを入力" aria-label="対戦ID" required maxlength="200"><button type="submit">接続</button></div></form><button id="demo" class="text-button">デモに戻る</button><p id="message" aria-live="polite">青と赤の壁、淡い色の囲み領域を表示します。</p><a class="reference" href="https://github.com/kakomimasu/viewer/tree/main/public/vr" target="_blank" rel="noreferrer">VR版から着想 ↗</a></aside><div class="stage"><canvas id="scene" aria-label="回転・拡大できる囲みマスの3D盤面"></canvas><div class="stage-top"><span class="pill">● COMPETITION STUDIO</span><div class="view-controls"><button id="studio" class="active">スタジオ</button><button id="players">選手席</button><button id="angle">盤面</button><button id="top">真上</button><button id="reset" aria-label="カメラを初期位置に戻す">↺</button></div></div><div id="tile-info">マスにカーソルを合わせると詳細を表示</div><div class="stage-bottom"><span>ドラッグで回転 <i>／</i> スクロールで拡大 <i>／</i> 右ドラッグで移動</span><label><input id="numbers" type="checkbox" checked> 得点を表示</label></div><div id="fatal" hidden></div></div></section><footer><span>KAKOMIMASU COMPETITION STUDIO</span><span>BLUE × RED <b> / </b> KAKOMIMASU 3D</span></footer></main><dialog id="games-dialog" aria-labelledby="games-heading">
-  <div class="games-header"><div><div class="eyebrow">MATCHES</div><h2 id="games-heading">ゲーム一覧</h2></div><button id="close-games" aria-label="ゲーム一覧を閉じる">✕</button></div>
-  <div class="games-toolbar"><p>最近の公開対戦から、観戦するゲームを選べます。</p><button id="refresh-games">更新</button></div>
+<body>
+<main>
+  <header>
+    <a class="brand" href="./"><img class="official-logo" src="%BASE_URL%img/kakomimasu-logo.svg" alt="囲みマス"><b class="brand-edition">3D</b></a>
+    <span id="connection" role="status">接続中…</span>
+    <button id="open-games">ゲーム一覧</button>
+  </header>
+  <section class="stage" aria-label="3Dスタジオ">
+    <canvas id="scene" aria-label="回転・拡大できる囲みマスの3D盤面"></canvas>
+    <div class="stage-top">
+      <details class="options"><summary>操作</summary><div class="options-panel">
+        <label><input id="numbers" type="checkbox" checked> マスの得点を表示</label>
+        <button id="demo">デモに切り替え</button>
+        <div class="controls"><button id="play">▶ デモを再生</button><button id="step" aria-label="デモを1ターン進める">1ターン進む →</button></div>
+        <small>デモは表示確認用のサンプルです。</small>
+      </div></details>
+      <div class="view-controls" aria-label="視点切り替え">
+        <button id="studio" class="active">スタジオ</button><button id="players">選手席</button><button id="angle">盤面</button><button id="top">真上</button><button id="reset" aria-label="カメラを初期位置に戻す">↺</button>
+      </div>
+    </div>
+    <div class="stage-bottom"><p id="message" aria-live="polite"></p><div id="tile-info">マスにカーソルを合わせると詳細を表示</div><span class="hint">ドラッグで回転 ／ スクロールで拡大 ／ 右ドラッグで移動</span></div>
+    <p id="score-summary" class="sr-only" aria-live="polite"></p>
+    <div id="fatal" hidden></div>
+  </section>
+</main>
+<dialog id="games-dialog" aria-labelledby="games-heading">
+  <div class="games-header"><h2 id="games-heading">ゲーム一覧</h2><button id="close-games" aria-label="ゲーム一覧を閉じる">✕</button></div>
+  <form id="connect"><label for="game-id">対戦IDを指定</label><div class="input-row"><input id="game-id" placeholder="対戦IDを入力" aria-label="対戦ID" required maxlength="200"><button type="submit">接続</button></div></form>
+  <div class="games-toolbar"><p>最近の公開対戦</p><button id="refresh-games">更新</button></div>
   <p id="games-status" role="status"></p><div id="games-list" aria-label="公開対戦一覧"></div>
-</dialog><script type="module" src="/src/main.ts"></script></body></html>
+</dialog>
+<script type="module" src="/src/main.ts"></script>
+</body></html>

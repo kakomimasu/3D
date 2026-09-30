@@ -106,10 +106,11 @@ function draw(value: unknown) {
       const foot=new THREE.Mesh(new THREE.CylinderGeometry(.26,.26,.055,32),new THREE.MeshStandardMaterial({color:pid?'#ff735c':'#4daedb'}));foot.position.y=.027;g.add(foot);
       g.position.set(x,h+.015,z);g.userData={pid,aid};board.add(g);pawns.push(g);
     });
-    const score=scores(game,pid);$('score'+pid).textContent=String(score.wall+score.area);$('detail'+pid).textContent=`壁 ${score.wall}  /  領域 ${score.area}`;
-    $('name'+pid).textContent=p.name||p.id|| (pid?'RED':'BLUE');
   });
-  $('turn').textContent=`TURN ${String(game.turn??game.log?.length??0).padStart(2,'0')}${game.ending||game.status==='ended'?' / END':''}`;
+  $('score-summary').textContent=game.players.map((p,pid)=>{
+    const score=scores(game,pid);
+    return `${p.name||p.id||(pid?'RED':'BLUE')} ${score.wall+score.area}点`;
+  }).join(' 対 ')+`、ターン ${game.turn??game.log?.length??0}`;
   studio.update(game);
   if(rebuild)setView(view);
 }
@@ -130,7 +131,7 @@ $('players').onclick=()=>setView('players');
 $('studio').onclick=()=>setView('studio');
 $('angle').onclick=()=>setView('angle');$('top').onclick=()=>setView('top');$('reset').onclick=()=>setView('studio');
 $('numbers').onchange=()=>numberMeshes.forEach(m=>m.visible=$('numbers').checked);
-function showDemo(){closeStream();stopDemo();mode='demo';demoTurn=1;draw(demoGame());$('play').disabled=false;$('step').disabled=false;$('connection').textContent='デモ表示';$('match-title').textContent='サンプル対戦';$('message').textContent='青と赤の壁、淡い色の囲み領域を表示します。';history.replaceState(null,'',location.pathname);}
+function showDemo(){closeStream();stopDemo();mode='demo';demoTurn=1;draw(demoGame());$('play').disabled=false;$('step').disabled=false;$('connection').textContent='デモ表示';$('message').textContent='青と赤の壁、淡い色の囲み領域を表示します。';history.replaceState(null,'',location.pathname);}
 $('demo').onclick=showDemo;
 function connect(id: string | null){
   $('game-id').value=id || '';
@@ -148,13 +149,13 @@ function connect(id: string | null){
         if(!id && !received && isRecord(data) && data.type==='initial' && Array.isArray(data.games) && !data.games.length) fallback('公開ゲームがありません。');
         return;
       }
-      const validated=validateGame(candidate);draw(validated);selectedId=validated.id;$('game-id').value=selectedId;received=true;clearTimeout(connectionTimer);$('connection').textContent=validated.ending||validated.status==='ended'?'対戦終了':'観戦中';$('match-title').textContent=validated.status==='ended'?'終了した対戦':'ライブ対戦';$('message').textContent='対戦の更新を自動で反映しています。';
+      const validated=validateGame(candidate);draw(validated);selectedId=validated.id;$('game-id').value=selectedId;received=true;clearTimeout(connectionTimer);$('connection').textContent=validated.ending||validated.status==='ended'?'対戦終了':'観戦中';$('message').textContent='対戦の更新を自動で反映しています。';
       if(id){const url=new URL(location.href);url.searchParams.set('id',id);history.replaceState(null,'',url);}
     }catch(err){if(!id&&!received){fallback('最新ゲームを読み取れませんでした。');return;}$('connection').textContent='データ読込エラー';$('message').textContent=err instanceof Error ? err.message : String(err);}
   };
   s.onerror=()=>{if(socket===s){if(!id&&!received){fallback('最新ゲームを取得できませんでした。');return;}$('connection').textContent='再接続中…';$('message').textContent='接続が途切れました。自動で再接続します。表示中の盤面は最後に受信した状態です。';}};
 }
-$('connect').onsubmit=e=>{e.preventDefault();const id=$('game-id').value.trim();if(id)connect(id);};
+$('connect').onsubmit=e=>{e.preventDefault();const id=$('game-id').value.trim();if(id){$('games-dialog').close();connect(id);}};
 new ResizeObserver(()=>{const {width,height}=canvas.parentElement!.getBoundingClientRect();renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();if(game)setView(view);}).observe(canvas.parentElement!);
 renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera);});
 draw(demoGame());
