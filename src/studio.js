@@ -60,8 +60,11 @@ export function createStudio(scene) {
     const x=side*(17+row*1.7),z=-5+i*2.1;
     box(.9,.2,1,x,-.25+row*.3,z,metal);box(.15,.95,1,x+side*.4,.15+row*.3,z,metal);
   }
-  return {
+  let currentGame = null;
+  const logo = new Image();
+  const studio = {
     update(game) {
+      currentGame = game;
       group.scale.setScalar(Math.max(game.field.width,game.field.height)/12);
       const ctx=screenCanvas.getContext('2d');
       ctx.fillStyle='#071022';ctx.fillRect(0,0,2048,576);
@@ -69,7 +72,12 @@ export function createStudio(scene) {
       for(let x=0;x<2048;x+=64){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,576);ctx.stroke();}
       ctx.fillStyle='#38bfff';ctx.fillRect(0,0,15,576);ctx.fillStyle='#ff566b';ctx.fillRect(2033,0,15,576);
       ctx.textAlign='center';ctx.fillStyle='#b2c9e3';ctx.font='24px sans-serif';ctx.fillText('KAKOMIMASU  /  COMPETITION STUDIO',1024,58);
-      ctx.font='bold 40px sans-serif';ctx.fillStyle='#fff';ctx.fillText('囲みマス 競技スタジオ',1024,125);
+      if (logo.complete && logo.naturalWidth) {
+        const h=108,w=h*logo.naturalWidth/logo.naturalHeight;
+        ctx.drawImage(logo,1024-w/2,76,w,h);
+      } else {
+        ctx.font='bold 40px sans-serif';ctx.fillStyle='#fff';ctx.fillText('囲みマス',1024,140);
+      }
       game.players.forEach((p,i)=>{
         const x=i?1530:518;const score=scores(game,i);
         ctx.fillStyle=i?'#ff7b8b':'#72d1ff';ctx.font='bold 46px sans-serif';ctx.fillText(String(p.name||p.id||(i?'RED':'BLUE')),x,219,760);
@@ -81,4 +89,7 @@ export function createStudio(scene) {
       texture.needsUpdate=true;
     },
   };
+  logo.onload = () => { if (currentGame) studio.update(currentGame); };
+  logo.src = `${import.meta.env.BASE_URL}img/kakomimasu-logo.svg`;
+  return studio;
 }
