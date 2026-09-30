@@ -1,11 +1,12 @@
 import * as THREE from "three";
 import { scores } from "./model.ts";
-import { createStudent } from "./students.ts";
+import { createStudent, createStudentMotion } from "./students.ts";
 import type { Game, Vec3 } from "./types.ts";
 
 // Original broadcast set inspired by programming-contest halls.
 export function createStudio(scene: THREE.Scene) {
   const group = new THREE.Group();
+  const peopleMotion: ReturnType<typeof createStudentMotion>[] = [];
   scene.add(group);
   const metal = new THREE.MeshStandardMaterial({
     color: "#24304a",
@@ -142,6 +143,9 @@ export function createStudio(scene: THREE.Scene) {
       });
       student.position.set(side * 10 + offset, 0, -4.4);
       group.add(student);
+      peopleMotion.push(
+        createStudentMotion(student, false, peopleMotion.length),
+      );
       box(.10, .035, .17, side * 10 + offset + .48, 1.03, -3.66, dark);
     }
   }
@@ -291,6 +295,9 @@ export function createStudio(scene: THREE.Scene) {
         person.position.set(x, -.15 + row * .3, z);
         person.rotation.y = -side * Math.PI / 2;
         group.add(person);
+        peopleMotion.push(
+          createStudentMotion(person, true, peopleMotion.length),
+        );
       }
     }
   }
@@ -300,6 +307,9 @@ export function createStudio(scene: THREE.Scene) {
     animate(delta: number, reducedMotion: boolean) {
       if (!reducedMotion) lightTime += delta;
       const time = reducedMotion ? 0 : lightTime;
+      for (const animatePerson of peopleMotion) {
+        animatePerson(time, reducedMotion);
+      }
       const wave = (phase: number) =>
         reducedMotion ? .65 : .5 + .5 * Math.sin(time * Math.PI / 1.8 + phase);
       blueLight.color.copy(blue.color).multiplyScalar(.6 + 1.1 * wave(0));
