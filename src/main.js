@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import './style.css';
-import { validateGame, streamUrl, scores, demoGame } from './model.js';
+import { validateGame, streamUrl, scores, demoGame, matchListUrl, matchSummaries } from './model.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('scene');
@@ -100,6 +100,7 @@ $('numbers').onchange=()=>numberMeshes.forEach(m=>m.visible=$('numbers').checked
 function showDemo(){closeStream();stopDemo();mode='demo';demoTurn=1;draw(demoGame());$('play').disabled=false;$('step').disabled=false;$('connection').textContent='デモ表示';$('match-title').textContent='サンプル対戦';$('message').textContent='青と赤の壁、淡い色の囲み領域を表示します。';history.replaceState(null,'',location.pathname);}
 $('demo').onclick=showDemo;
 function connect(id){
+  $('game-id').value=id;
   closeStream();stopDemo();mode='live';$('play').disabled=true;$('step').disabled=true;$('connection').textContent='接続中…';$('message').textContent='対戦データを待っています。盤面は受信後に切り替わります。';
   const s=new EventSource(streamUrl(id));socket=s;let received=false;
   connectionTimer=setTimeout(()=>{if(!received){$('connection').textContent='データ未受信';$('message').textContent='対戦が見つかりません。IDと通信状況を確認してください。';}},15000);
@@ -121,3 +122,60 @@ renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera);}
 draw(demoGame());
 const id=new URLSearchParams(location.search).get('id');if(id){$('game-id').value=id;connect(id);}
 window.addEventListener('pagehide',()=>{closeStream();stopDemo();renderer.setAnimationLoop(null);});
+
+// The public stream provides the latest match list in its initial event.
+// Close the list stream after that snapshot; only the selected match stays live.
+let listSource = null, listTimeout = null;
+const gamesDialog = $('games-dialog');
+function stopListRequest() {
+  listSource?.close(); listSource = null;
+  clearTimeout(listTimeout);
+  $('refresh-games').disabled = false;
+  $('games-list').setAttribute('aria-busy', 'false');
+}
+function loadGames() {
+  stopListRequest();
+  $('games-list').replaceChildren();
+  $('games-list').setAttribute('aria-busy', 'true');
+  $('games-status').textContent = 'ゲーム一覧を読み込み中…';
+  $('refresh-games').disabled = true;
+  const source = new EventSource(matchListUrl());
+  listSource = source;
+  const fail = message => {
+    if (listSource !== source) return;
+    stopListRequest(); $('games-status').textContent = message;
+  };
+  listTimeout = setTimeout(() => fail('読み込みがタイムアウトしました。「更新」で再試行できます。'), 15000);
+  source.onerror = () => fail('一覧を取得できませんでした。通信状況を確認して「更新」を押してください。');
+  source.onmessage = event => {
+    if (listSource !== source) return;
+    try {
+      const data = JSON.parse(event.data);
+      if (data.type !== 'initial') return;
+      const matches = matchSummaries(data.games);
+      const fragment = document.createDocumentFragment();
+      matches.forEach(match => {
+        const button = document.createElement('button');
+        button.className = 'game-card';
+        if (mode === 'live' && game?.id === match.id) button.setAttribute('aria-current', 'true');
+        const heading = document.createElement('strong'); heading.textContent = match.name;
+        const players = document.createElement('span'); players.className = 'game-players'; players.textContent = match.players;
+        const meta = document.createElement('span'); meta.className = 'game-meta';
+        const date = match.startedAt == null ? '開始日時未定' : new Date(match.startedAt * 1000).toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit', year:'numeric'});
+        meta.textContent = `${match.status} · ${date} · ${match.turn}ターン`;
+        const id = document.createElement('small'); id.textContent = `ID: ${match.id}`;
+        button.append(heading, players, meta, id);
+        button.onclick = () => { gamesDialog.close(); connect(match.id); };
+        fragment.append(button);
+      });
+      $('games-list').replaceChildren(fragment);
+      $('games-status').textContent = matches.length ? `最近の${matches.length}件 · ゲームを選ぶと観戦を開始します` : '公開されているゲームはありません。';
+      stopListRequest();
+    } catch { fail('一覧データを読み取れませんでした。「更新」で再試行できます。'); }
+  };
+}
+$('open-games').onclick = () => { gamesDialog.showModal(); loadGames(); };
+$('close-games').onclick = () => gamesDialog.close();
+$('refresh-games').onclick = loadGames;
+gamesDialog.addEventListener('close', stopListRequest);
+window.addEventListener('pagehide', stopListRequest);

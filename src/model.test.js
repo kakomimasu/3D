@@ -7,3 +7,16 @@ test('server score is authoritative',()=>{const g=demoGame();g.players[0].point=
 test('match id is preserved in stream filter and new matches disabled',()=>{const u=new URL(streamUrl('abc-123'));assert.equal(u.searchParams.get('q'),'id:abc-123');assert.equal(u.searchParams.get('allowNewGame'),'false');});
 test('invalid dimensions and malformed tiles rejected',()=>{const g=demoGame();g.field.width=10000;assert.throws(()=>validateGame(g));const h=demoGame();h.field.tiles[0]=null;assert.throws(()=>validateGame(h));});
 test('official API uses null for neutral ownership',()=>{const g=demoGame();g.field.tiles[0]={type:0,player:null};assert.equal(validateGame(g),g);});
+
+test('match list retains match identity, sorts recent first and deduplicates',async()=>{
+  const {matchSummaries}=await import('./model.js');
+  const result=matchSummaries([{id:'old',name:'古い対戦',startedAtUnixTime:100,status:'ended',players:[{id:'A'},{id:'B'}]},{id:'new',startedAtUnixTime:200},{id:'old'},null,{}]);
+  assert.deepEqual(result.map(m=>m.id),['new','old']);
+  assert.equal(result[1].players,'A vs B');assert.equal(result[1].status,'終了');
+});
+test('empty and waiting match lists are supported',async()=>{
+  const {matchSummaries,matchListUrl}=await import('./model.js');
+  assert.deepEqual(matchSummaries([]),[]);assert.throws(()=>matchSummaries(null));
+  assert.equal(matchSummaries([{id:'waiting',startedAtUnixTime:null}])[0].status,'開始待ち');
+  const url=new URL(matchListUrl());assert.equal(url.searchParams.get('allowNewGame'),'false');assert.equal(url.searchParams.get('q'),'sort:startAtUnixTime-desc type:normal');
+});

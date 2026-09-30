@@ -30,3 +30,26 @@ export function demoGame(turn = 1) {
   });
   return {id:'demo',turn,field:{width,height,points,tiles},players};
 }
+
+export function matchListUrl() {
+  const url = new URL('https://api.kakomimasu.com/v1/matches/stream');
+  url.searchParams.set('q', 'sort:startAtUnixTime-desc type:normal');
+  url.searchParams.set('allowNewGame', 'false');
+  return url.toString();
+}
+
+export function matchSummaries(games) {
+  if (!Array.isArray(games)) throw new Error('一覧データの形式が不正です。');
+  const seen = new Set();
+  return games.filter(g => {
+    if (!g || typeof g.id !== 'string' || !g.id || seen.has(g.id)) return false;
+    seen.add(g.id); return true;
+  }).map(g => ({
+    id: g.id,
+    name: typeof g.name === 'string' && g.name ? g.name : '公開対戦',
+    players: (Array.isArray(g.players) ? g.players : []).map(p => p?.name || p?.id || '参加待ち').join(' vs ') || '参加待ち',
+    status: g.status === 'ended' ? '終了' : g.startedAtUnixTime == null || g.startedAtUnixTime > Date.now()/1000 ? '開始待ち' : '対戦中',
+    startedAt: Number.isFinite(g.startedAtUnixTime) ? g.startedAtUnixTime : null,
+    turn: Number.isInteger(g.turn) ? g.turn : 0,
+  })).sort((a,b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
+}
