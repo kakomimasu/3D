@@ -46,6 +46,12 @@ function setView(next) {
   const distance = (Math.hypot(game.field.width,game.field.height)/2+.6)/Math.sin(fov/2)*(next==='studio'?1.7:1.12);
   camera.position.copy(new THREE.Vector3(...(next==='top'?[0,1,.001]:next==='studio'?[.15,.72,1.5]:[1.05,1.3,1.3])).normalize().multiplyScalar(distance).add(controls.target));
   scene.fog.near=distance+20;scene.fog.far=distance+140;
+  if(next==='players'){
+    const scale=d/12;
+    controls.target.set(-10*scale,.65*scale,-3.7*scale);
+    camera.position.copy(new THREE.Vector3(4,2.7,-2.5).normalize().multiplyScalar(7*scale/Math.min(camera.aspect,1)).add(controls.target));
+  }
+  $('players').classList.toggle('active',next==='players');
   controls.update();$('studio').classList.toggle('active',next==='studio');$('angle').classList.toggle('active',next==='angle');$('top').classList.toggle('active',next==='top');
 }
 function draw(next) {
@@ -98,6 +104,7 @@ function closeStream(){socket?.close();socket=null;clearTimeout(connectionTimer)
 function step(){demoTurn=demoTurn%12+1;draw(demoGame(demoTurn));}
 $('play').onclick=()=>{if(timer){stopDemo();return;}timer=setInterval(step,1100);$('play').textContent='Ⅱ 一時停止';};
 $('step').onclick=()=>{stopDemo();step();};
+$('players').onclick=()=>setView('players');
 $('studio').onclick=()=>setView('studio');
 $('angle').onclick=()=>setView('angle');$('top').onclick=()=>setView('top');$('reset').onclick=()=>setView('studio');
 $('numbers').onchange=()=>numberMeshes.forEach(m=>m.visible=$('numbers').checked);

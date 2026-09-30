@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { scores } from './model.js';
+import { createStudent } from './students.js';
 
 // Original broadcast set inspired by programming-contest halls.
 export function createStudio(scene) {
@@ -46,10 +47,14 @@ export function createStudio(scene) {
     box(3.6,.22,2,side*10,.9,-3,metal);box(3.2,1.8,.3,side*10,-.1,-2.5);
     box(3.2,.14,.06,side*10,.63,-2.32,color);
     for(const offset of [-.85,.85]){
-      box(1.25,.85,.09,side*10+offset,1.7,-3.1);box(1.1,.65,.015,side*10+offset,1.72,-3.04,color);
+      box(1.25,.85,.09,side*10+offset,1.7,-3.1);box(1.1,.65,.015,side*10+offset,1.72,-3.16,color);
       box(.08,.4,.1,side*10+offset,1.1,-3.1,silver);
       box(.8,.14,.8,side*10+offset,0,-4.4);box(.8,.9,.12,side*10+offset,.45,-4.8);
       box(.08,.8,.08,side*10+offset,-.45,-4.4,silver);
+      const student=createStudent({team:side<0?'blue':'red',variant:offset>0?1:0});
+      student.position.set(side*10+offset,0,-4.4);group.add(student);
+      box(.65,.04,.27,side*10+offset,1.03,-3.66,silver);
+      box(.10,.035,.17,side*10+offset+.48,1.03,-3.66,dark);
     }
   }
   // Side light pillars and distant auditorium seating.
